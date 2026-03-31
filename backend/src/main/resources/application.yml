@@ -1,0 +1,51 @@
+server:
+  port: 8080
+  error:
+    include-message: always
+    include-binding-errors: always
+
+spring:
+  data:
+    mongodb:
+      uri: ${SPRING_DATA_MONGODB_URI:mongodb://localhost:27018/pharma-cx-db}
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 50MB
+
+app:
+  jwt:
+    secret: ${AUTH_JWT_SECRET:pharma-cx-256bit-secret-key-for-dev-only!!}
+    expiration-minutes: ${AUTH_JWT_EXPIRATION_MINUTES:480}
+  onlyoffice:
+    url: ${ONLYOFFICE_URL:http://localhost:8092}
+    external-url: ${ONLYOFFICE_EXTERNAL_URL:http://localhost:8092}
+    jwt-secret: ${ONLYOFFICE_JWT_SECRET:pharma-cx-onlyoffice-jwt-secret-key-2026}
+    file-storage-path: ${FILE_STORAGE_PATH:/app/document-storage}
+    backend-url: ${BACKEND_URL:http://backend:8080}
+  ai:
+    ollama-url: ${AI_OLLAMA_URL:http://host.docker.internal:11434}
+    embed-model: ${AI_OLLAMA_EMBED_MODEL:nomic-embed-text}
+    chat-model: ${AI_OLLAMA_CHAT_MODEL:helix-ai}
+    light-chat-model: ${AI_OLLAMA_LIGHT_MODEL:phi3:mini}
+    strategy: ${AI_STRATEGY:LOCAL} # LOCAL, HYBRID, CLOUD
+    cloud-provider: ${CLOUD_AI_PROVIDER:GOOGLE}
+    cloud-api-key: ${CLOUD_AI_API_KEY:}
+    cloud-model: ${CLOUD_AI_MODEL:gemini-1.5-flash}
+    index-chunk-words: 500
+    index-chunk-overlap: 50
+    search-top-k: 10
+    background-knowledge-path: ${BACKGROUND_KNOWLEDGE_PATH:/app/background-knowledge}
+
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operationsSorter: method
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

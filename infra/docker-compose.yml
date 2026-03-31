@@ -1,0 +1,111 @@
+version: "3.9"
+
+services:
+
+  # ============================================================
+  # Application Services
+  # ============================================================
+
+  # ============================================================
+  # ONLYOFFICE Document Server (document editing engine)
+  # ============================================================
+  document-server:
+    image: onlyoffice/documentserver:latest
+    container_name: document-server
+    ports:
+      - "8093:80"
+    environment:
+      JWT_ENABLED: "true"
+      JWT_SECRET: pharma-cx-onlyoffice-jwt-secret-key-2026
+      JWT_HEADER: Authorization
+    volumes:
+      - ds_data:/var/www/onlyoffice/Data
+      - ds_logs:/var/log/onlyoffice
+      - ds_fonts:/usr/share/fonts/truetype/custom
+      - ds_forgotten:/var/lib/onlyoffice/documentserver/App_Data/cache/files/forgotten
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/healthcheck"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    restart: unless-stopped
+
+  # ============================================================
+  # Application Services
+  # ============================================================
+
+  # MongoDB (our application database)
+  mongodb:
+    image: mongo:7
+    container_name: mongodb
+    ports:
+      - "27018:27017"
+    environment:
+      MONGO_INITDB_DATABASE: pharma-cx-db
+    volumes:
+      - mongodb_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Spring Boot Backend
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    image: pharma-cx-backend:latest
+    container_name: backend
+    volumes:
+      - document_storage:/app/document-storage
+      - ../Documents:/app/background-knowledge:ro
+      - /Users/venkateshwarlu/Documents/published_docs:/app/published_docs
+    environment:
+      SPRING_DATA_MONGODB_URI: mongodb://mongodb:27017/pharma-cx-db
+      AUTH_JWT_SECRET: pharma-cx-256bit-secret-key-for-dev-only!!
+      AUTH_JWT_EXPIRATION_MINUTES: 480
+      ONLYOFFICE_URL: http://document-server
+      ONLYOFFICE_EXTERNAL_URL: http://localhost:8093
+      ONLYOFFICE_JWT_SECRET: pharma-cx-onlyoffice-jwt-secret-key-2026
+      BACKEND_URL: http://backend:8080
+      AI_OLLAMA_URL: http://host.docker.internal:11434
+      AI_PUBLISHED_DOCS_PATH: /app/published_docs
+      AI_COPY_ON_PUBLISH: ${AI_COPY_ON_PUBLISH:-true}
+      CLOUD_AI_PROVIDER: ${CLOUD_AI_PROVIDER:-GOOGLE}
+      CLOUD_AI_API_KEY: ${CLOUD_AI_API_KEY:-}
+      CLOUD_AI_MODEL: ${CLOUD_AI_MODEL:-gemini-1.5-flash}
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # React Frontend
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    image: pharma-cx-frontend:latest
+    container_name: frontend
+    ports:
+      - "3001:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  ds_data:
+
+  ds_logs:
+  ds_fonts:
+  ds_forgotten:
+  mongodb_data:
+  document_storage:

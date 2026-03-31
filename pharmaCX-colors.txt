@@ -1,0 +1,110 @@
+# PharmaCX Brand Color Codes
+# ================================================
+# Product: PharmaCX — Compliance Execution Platform
+# Use these codes in Figma, CSS, PowerPoint, Word
+# ================================================
+
+## PRIMARY PALETTE
+# ----------------
+
+Navy (Logo base / headers / dark backgrounds)
+  HEX:    #0F3D6E
+  RGB:    rgb(15, 61, 110)
+  HSL:    hsl(212, 76%, 25%)
+  CMYK:   C=86  M=44  Y=0   K=57
+
+Primary Blue (Buttons / links / active states)
+  HEX:    #1E7FC4
+  RGB:    rgb(30, 127, 196)
+  HSL:    hsl(207, 73%, 44%)
+  CMYK:   C=85  M=35  Y=0   K=23
+
+Accent Blue (CX logo highlight / badges / accents)
+  HEX:    #4FB8F5
+  RGB:    rgb(79, 184, 245)
+  HSL:    hsl(203, 89%, 64%)
+  CMYK:   C=68  M=25  Y=0   K=4
+
+Tint Blue (Card backgrounds / info highlights)
+  HEX:    #E8F4FB
+  RGB:    rgb(232, 244, 251)
+  HSL:    hsl(204, 74%, 95%)
+  CMYK:   C=7   M=3   Y=0   K=2
+
+
+## SEMANTIC COLORS
+# -----------------
+
+Validated Green (Success / compliance badges / audit pass)
+  HEX:    #1B6B3A
+  RGB:    rgb(27, 107, 58)
+  HSL:    hsl(143, 60%, 26%)
+  CMYK:   C=75  M=0   Y=46  K=58
+
+Neutral Gray (Body text secondary / borders / inactive)
+  HEX:    #5F5E5A
+  RGB:    rgb(95, 94, 90)
+  HSL:    hsl(45, 3%, 36%)
+  CMYK:   C=0   M=1   Y=5   K=63
+
+Light Gray (Background surfaces / dividers)
+  HEX:    #F1EFE8
+  RGB:    rgb(241, 239, 232)
+  HSL:    hsl(48, 22%, 93%)
+  CMYK:   C=0   M=1   Y=4   K=5
+
+
+## TEXT ON COLORED BACKGROUNDS
+# ------------------------------
+# On Navy (#0F3D6E)      → use White #FFFFFF or Accent #4FB8F5
+# On Primary (#1E7FC4)   → use White #FFFFFF
+# On Accent (#4FB8F5)    → use Navy #0F3D6E (dark text)
+# On Tint (#E8F4FB)      → use Navy #0F3D6E
+# On Green (#1B6B3A)     → use White #FFFFFF
+# On White / Light bg    → use Navy #0F3D6E for brand text
+
+
+## CSS VARIABLES (copy into your stylesheet)
+# -------------------------------------------
+:root {
+  --pharmaCX-navy:        #0F3D6E;
+  --pharmaCX-primary:     #1E7FC4;
+  --pharmaCX-accent:      #4FB8F5;
+  --pharmaCX-tint:        #E8F4FB;
+  --pharmaCX-green:       #1B6B3A;
+  --pharmaCX-gray:        #5F5E5A;
+  --pharmaCX-light-gray:  #F1EFE8;
+  --pharmaCX-white:       #FFFFFF;
+}
+
+
+## FIGMA / DESIGN TOOL REFERENCE
+# --------------------------------
+# Import as a color style library using the HEX values above.
+# Naming convention: PharmaCX / Navy, PharmaCX / Primary, etc.
+
+
+## POWERPOINT / WORD CUSTOM COLORS
+# -----------------------------------
+# Go to: Theme Colors → Customize Colors → enter HEX values
+#
+# Color 1 (Dark 1):   #0F3D6E   Navy
+# Color 2 (Light 1):  #FFFFFF   White
+# Color 3 (Dark 2):   #5F5E5A   Gray
+# Color 4 (Light 2):  #E8F4FB   Tint Blue
+# Accent 1:           #1E7FC4   Primary Blue
+# Accent 2:           #4FB8F5   Accent Blue
+# Accent 3:           #1B6B3A   Validated Green
+
+
+## LOGO TYPOGRAPHY
+# -----------------
+# Font:        Arial / Arial Bold
+# "Pharma"  →  font-weight: 400  color: #FFFFFF (dark bg) / #0F3D6E (light bg)
+# "CX"      →  font-weight: 700  color: #4FB8F5 (dark bg) / #1E7FC4 (light bg)
+# Tagline   →  font-weight: 400  font-size: 13px  color: #7BB8D8
+
+# ================================================
+# PharmaCX Compliance Execution Platform
+# Internal Brand Reference — March 2026
+# ================================================

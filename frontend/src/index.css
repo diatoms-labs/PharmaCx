@@ -1,0 +1,100 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --pharmaCX-navy:        #0F3D6E;
+  --pharmaCX-primary:     #1E7FC4;
+  --pharmaCX-accent:      #4FB8F5;
+  --pharmaCX-tint:        #E8F4FB;
+  --pharmaCX-green:       #1B6B3A;
+  --pharmaCX-gray:        #5F5E5A;
+  --pharmaCX-light-gray:  #F1EFE8;
+  --pharmaCX-white:       #FFFFFF;
+}
+
+@layer base {
+  body {
+    @apply bg-[#F1EFE8] text-[#0F3D6E] font-sans;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors focus:outline-none disabled:opacity-50 disabled:pointer-events-none;
+  }
+  .btn-primary {
+    @apply btn bg-[#1E7FC4] text-white hover:bg-[#0F3D6E];
+  }
+  .btn-secondary {
+    @apply btn bg-white text-[#0F3D6E] border border-[#0F3D6E] hover:bg-[#E8F4FB];
+  }
+  .btn-danger {
+    @apply btn bg-white text-red-600 border border-red-200 hover:bg-red-50;
+  }
+
+  .card {
+    @apply bg-white rounded-lg border border-[#F1EFE8] shadow-sm;
+  }
+  .input {
+    @apply w-full rounded-md border border-[#F1EFE8] bg-white px-3 py-2 text-sm text-[#0F3D6E] placeholder:text-[#5F5E5A] focus:border-[#1E7FC4] focus:outline-none focus:ring-1 focus:ring-[#1E7FC4];
+  }
+  .label {
+    @apply block text-sm font-medium text-[#0F3D6E] mb-1;
+  }
+
+  .badge {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
+  }
+  .badge-gray {
+    @apply badge bg-[#F1EFE8] text-[#5F5E5A];
+  }
+  .badge-dark {
+    @apply badge bg-[#0F3D6E] text-white;
+  }
+  .badge-green {
+    @apply badge bg-[#1B6B3A]/10 text-[#1B6B3A];
+  }
+  .badge-red {
+    @apply badge bg-red-50 text-red-600;
+  }
+  .badge-yellow {
+    @apply badge bg-amber-50 text-amber-600;
+  }
+  
+  .sidebar-link-active {
+    @apply bg-[#E8F4FB] text-[#1E7FC4] border-r-4 border-r-[#1E7FC4];
+  }
+}
+
+@keyframes loading-bar {
+  0% { width: 0%; }
+  50% { width: 70%; }
+  100% { width: 100%; }
+}
+.animate-loading-bar {
+  animation: loading-bar 1.5s ease-in-out infinite;
+}
+
+@keyframes global-loading {
+  0% { width: 0%; margin-left: 0%; }
+  50% { width: 60%; margin-left: 20%; }
+  100% { width: 0%; margin-left: 100%; }
+}
+
+@keyframes progress-indeterminate {
+  0% { transform: translateX(-100%); }
+  50% { transform: translateX(-10%); }
+  100% { transform: translateX(100%); }
+}
+.animate-progress-indeterminate {
+  animation: progress-indeterminate 2s linear infinite;
+}
+
+.search-snippet mark {
+  background-color: #fef08a; /* yellow-200 */
+  color: #1e3a8a; /* blue-900 */
+  font-weight: 700;
+  padding: 0 2px;
+  border-radius: 2px;
+}
