@@ -174,7 +174,7 @@ public class OnlyOfficeService {
             if (externalPath.toLowerCase().endsWith(".pdf")) fileExt = "pdf";
         }
         
-        String fileName = (doc.getDocumentNumber() != null ? doc.getDocumentNumber() : doc.getTitle()) + "." + fileExt;
+        // Filename is derived from title/number + extension
 
         EditorPermissionProfile profile = resolveProfile(doc.getStatus(), canEdit, isRevision);
         if (doc.getStatus() == DocumentStatus.EXTERNAL_KNOWLEDGE) {
@@ -264,7 +264,7 @@ public class OnlyOfficeService {
         features.put("spellcheck", profile.spellCheck);
 
         // Disable the OnlyOffice native AI plugin menu across all profiles —
-        // AI assistance is provided by the custom pharma-ai panel instead.
+        // AI assistance is provided by the custom helix-ai panel instead.
         Map<String, Object> aiFeature = new LinkedHashMap<>();
         aiFeature.put("smartDocument", false);
         aiFeature.put("reviewChanges", false);

@@ -38,19 +38,22 @@ public class DocumentIndexService {
     private final DocumentTextExtractor textExtractor;
     private final OllamaClient ollamaClient;
     private final AiConfig aiConfig;
+    private final BackgroundIndexService backgroundIndexService;
 
     public DocumentIndexService(DocumentChunkRepository chunkRepo,
-                                ControlledDocumentRepository documentRepo,
-                                FileStorageService fileStorageService,
-                                DocumentTextExtractor textExtractor,
-                                OllamaClient ollamaClient,
-                                AiConfig aiConfig) {
+                                 ControlledDocumentRepository documentRepo,
+                                 FileStorageService fileStorageService,
+                                 DocumentTextExtractor textExtractor,
+                                 OllamaClient ollamaClient,
+                                 AiConfig aiConfig,
+                                 BackgroundIndexService backgroundIndexService) {
         this.chunkRepo = chunkRepo;
         this.documentRepo = documentRepo;
         this.fileStorageService = fileStorageService;
         this.textExtractor = textExtractor;
         this.ollamaClient = ollamaClient;
         this.aiConfig = aiConfig;
+        this.backgroundIndexService = backgroundIndexService;
     }
 
     /**
@@ -64,7 +67,9 @@ public class DocumentIndexService {
 
     @Async("aiTaskExecutor")
     public void indexAllPublishedAsync() {
-        log.info("[AI Index] Startup scan for un-indexed PUBLISHED documents...");
+        log.info("[AI Index] Starting unified full re-index scan...");
+        
+        // 1. Internal Published Documents
         List<ControlledDocument> published = documentRepo.findByStatus(
                 com.pharmaCx.dms.domain.enums.DocumentStatus.PUBLISHED);
         int indexed = 0;
@@ -74,7 +79,10 @@ public class DocumentIndexService {
                 indexed++;
             }
         }
-        log.info("[AI Index] Startup scan complete: {} documents indexed.", indexed);
+        log.info("[AI Index] Internal scan complete: {} documents indexed.", indexed);
+
+        // 2. External Folders (Unified Background Search)
+        backgroundIndexService.indexBackgroundKnowledgeAsync();
     }
 
     /**
@@ -168,10 +176,15 @@ public class DocumentIndexService {
         // Helix AI Export (Physical hot-folder sync)
         if (aiConfig.isCopyOnPublish()) {
             try {
-                String safeTitle = doc.getTitle().replaceAll("[^a-zA-Z0-9.-]", "_");
-                String fileName = doc.getDocumentNumber() + "_" + safeTitle + "." + fileStorageService.getFileExtension(doc.getDocumentFileId());
-                fileStorageService.copyFileToExternal(doc.getDocumentFileId(), aiConfig.getPublishedDocsPath(), fileName);
-                log.info("[AI Export] Successfully synchronized to Helix hot-folder: {}", fileName);
+                String syncPath = aiConfig.getPublishedDocsPath();
+                if (syncPath != null && !syncPath.isBlank()) {
+                    String safeTitle = doc.getTitle().replaceAll("[^a-zA-Z0-9.-]", "_");
+                    String fileName = doc.getDocumentNumber() + "_" + safeTitle + "." + fileStorageService.getFileExtension(doc.getDocumentFileId());
+                    fileStorageService.copyFileToExternal(doc.getDocumentFileId(), syncPath, fileName);
+                    log.info("[AI Export] Successfully synchronized to Helix hot-folder: {} (Path: {})", fileName, syncPath);
+                } else {
+                    log.debug("[AI Export] Skipping sync — no path configured in AI config.");
+                }
             } catch (Exception e) {
                 log.error("[AI Export] Failed to sync to hot-folder", e);
             }

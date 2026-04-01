@@ -289,8 +289,10 @@ public class DocumentSearchService {
 
         Set<String> ids = new HashSet<>();
 
-        // All PUBLISHED documents are visible to every authenticated user
+        // All PUBLISHED documents and EXTERNAL_KNOWLEDGE (Background) are visible to every user
         documentRepo.findByStatus(DocumentStatus.PUBLISHED)
+                .forEach(d -> ids.add(d.getId()));
+        documentRepo.findByStatus(DocumentStatus.EXTERNAL_KNOWLEDGE)
                 .forEach(d -> ids.add(d.getId()));
 
         // Their own in-progress documents (requestedBy / authorId / workflow assignee)

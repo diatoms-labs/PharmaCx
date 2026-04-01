@@ -238,7 +238,7 @@ export default function AIChatPanel({ documentId, documentStatus, onInsertConten
             <Send size={16} />
           </button>
         </div>
-        <p className="text-[9px] text-gray-400 mt-2 text-center font-medium uppercase tracking-widest opacity-80 italic">Verified by pharma-ai</p>
+        <p className="text-[9px] text-gray-400 mt-2 text-center font-medium uppercase tracking-widest opacity-80 italic">Verified by helix-ai</p>
       </div>
     </div>
   );

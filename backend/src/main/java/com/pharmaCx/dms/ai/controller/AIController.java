@@ -1,6 +1,7 @@
 package com.pharmaCx.dms.ai.controller;
 
 import com.pharmaCx.dms.ai.service.AiOrchestratorService;
+import com.pharmaCx.dms.ai.service.BackgroundIndexService;
 import com.pharmaCx.dms.ai.service.DocumentContentService;
 import com.pharmaCx.dms.ai.service.DocumentIndexService;
 import com.pharmaCx.dms.ai.service.DocumentSearchService;
@@ -10,6 +11,7 @@ import com.pharmaCx.dms.domain.model.AppUser;
 import com.pharmaCx.dms.security.CurrentUserService;
 import com.pharmaCx.dms.service.AuditService;
 import com.pharmaCx.dms.service.AuthService;
+import com.pharmaCx.dms.config.AiConfig;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -24,11 +26,12 @@ import java.util.concurrent.CompletableFuture;
 /**
  * AI REST endpoints — all require JWT authentication.
  *
- * POST /api/v1/ai/search           → RBAC-filtered semantic document search
- * POST /api/v1/ai/chat             → RAG chat (single-doc or cross-doc)
- * GET  /api/v1/ai/index/status     → index statistics (SYSTEM_ADMIN only)
- * POST /api/v1/ai/index/{docId}    → manual re-index trigger (SYSTEM_ADMIN only)
- * GET  /api/v1/ai/health           → Ollama connectivity check
+ * POST /api/v1/ai/search           → Unified semantic search (DMS + Background Knowledge)
+ * POST /api/v1/ai/chat             → RAG chat with unified context
+ * GET  /api/v1/ai/index/status     → Index statistics
+ * POST /api/v1/ai/index/all        → Trigger full re-index of all sources (DMS + Folders)
+ * POST /api/v1/ai/index/{docId}    → Manual re-index of a single document
+ * GET  /api/v1/ai/health           → AI connectivity and health check
  *
  * Every chat call writes an AuditEvent via the existing AuditService.
  */
@@ -38,26 +41,32 @@ public class AIController {
 
     private final DocumentSearchService searchService;
     private final DocumentIndexService indexService;
+    private final BackgroundIndexService backgroundIndexService;
     private final AiOrchestratorService aiOrchestrator;
     private final DocumentContentService contentService;
     private final CurrentUserService currentUserService;
     private final AuthService authService;
     private final AuditService auditService;
+    private final AiConfig config;
 
     public AIController(DocumentSearchService searchService,
                         DocumentIndexService indexService,
+                        BackgroundIndexService backgroundIndexService,
                         AiOrchestratorService aiOrchestrator,
                         DocumentContentService contentService,
                         CurrentUserService currentUserService,
                         AuthService authService,
-                        AuditService auditService) {
+                        AuditService auditService,
+                        AiConfig config) {
         this.searchService = searchService;
         this.indexService = indexService;
+        this.backgroundIndexService = backgroundIndexService;
         this.aiOrchestrator = aiOrchestrator;
         this.contentService = contentService;
         this.currentUserService = currentUserService;
         this.authService = authService;
         this.auditService = auditService;
+        this.config = config;
     }
 
     // ── Search ─────────────────────────────────────────────────────────────────
@@ -133,7 +142,7 @@ public class AIController {
         }
 
         // CFR 21 Part 11: log every AI interaction to audit trail
-        String modelName = request.isLight() ? "phi3:mini" : "pharma-ai";
+        String modelName = request.isLight() ? "phi3:mini" : "helix-ai";
         String auditDetail = "AI chat | model=" + modelName + " | stage=" + request.workflowStage()
                 + " | docId=" + request.documentId()
                 + " | query_len=" + request.message().length();
@@ -230,17 +239,54 @@ public class AIController {
     // ── Index management (SYSTEM_ADMIN only) ───────────────────────────────────
 
     @GetMapping("/index/status")
-    @PreAuthorize("hasAuthority('SYSTEM_ADMIN')")
+    @PreAuthorize("hasRole('SYSTEM_ADMIN')")
     public ResponseEntity<DocumentIndexService.IndexStatus> getIndexStatus() {
         return ResponseEntity.ok(indexService.getIndexStatus());
     }
 
+    @PostMapping("/index/all")
+    @PreAuthorize("hasRole('SYSTEM_ADMIN')")
+    public ResponseEntity<Map<String, String>> reIndexAll() {
+        // Trigger both internal and external (background) re-indexing
+        indexService.indexAllPublishedAsync();
+        backgroundIndexService.indexBackgroundKnowledgeAsync();
+        
+        auditService.logSystem(AuditAction.REINDEX_TRIGGERED, ResourceType.DOCUMENT,
+                "AI_SYSTEM", "Full AI re-index triggered (DMS + knowledge-base + published-docs)");
+                
+        return ResponseEntity.accepted()
+                .body(Map.of("status", "full_reindex_started"));
+    }
+
     @PostMapping("/index/{documentId}")
-    @PreAuthorize("hasAuthority('SYSTEM_ADMIN')")
+    @PreAuthorize("hasRole('SYSTEM_ADMIN')")
     public ResponseEntity<Map<String, String>> reIndexDocument(@PathVariable String documentId) {
         indexService.indexDocumentAsync(documentId);
         return ResponseEntity.accepted()
                 .body(Map.of("status", "indexing_started", "documentId", documentId));
+    }
+
+    @GetMapping("/config")
+    @PreAuthorize("hasRole('SYSTEM_ADMIN')")
+    public ResponseEntity<Map<String, Object>> getConfig() {
+        Map<String, Object> cfgDto = new java.util.LinkedHashMap<>();
+        cfgDto.put("ollamaUrl", config.getOllamaUrl());
+        cfgDto.put("embedModel", config.getEmbedModel());
+        cfgDto.put("chatModel", config.getChatModel());
+        cfgDto.put("lightChatModel", config.getLightChatModel());
+        cfgDto.put("strategy", config.getStrategy());
+        cfgDto.put("cloudProvider", config.getCloudProvider());
+        cfgDto.put("cloudModel", config.getCloudModel());
+        cfgDto.put("indexChunkWords", config.getIndexChunkWords());
+        cfgDto.put("indexChunkOverlap", config.getIndexChunkOverlap());
+        cfgDto.put("searchTopK", config.getSearchTopK());
+        cfgDto.put("backgroundKnowledgePath", config.getBackgroundKnowledgePath() != null ? config.getBackgroundKnowledgePath() : "");
+        cfgDto.put("publishedDocsPath", config.getPublishedDocsPath() != null ? config.getPublishedDocsPath() : "");
+        cfgDto.put("hostKnowledgePath", config.getHostKnowledgePath() != null ? config.getHostKnowledgePath() : "");
+        cfgDto.put("hostPublishedDocsPath", config.getHostPublishedDocsPath() != null ? config.getHostPublishedDocsPath() : "");
+        cfgDto.put("copyOnPublish", config.isCopyOnPublish());
+        
+        return ResponseEntity.ok(cfgDto);
     }
 
     // ── Health ─────────────────────────────────────────────────────────────────

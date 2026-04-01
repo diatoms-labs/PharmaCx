@@ -35,7 +35,11 @@ app:
     index-chunk-words: 500
     index-chunk-overlap: 50
     search-top-k: 10
-    background-knowledge-path: ${BACKGROUND_KNOWLEDGE_PATH:/app/background-knowledge}
+    background-knowledge-path: ${AI_BACKGROUND_KNOWLEDGE_PATH}
+    published-docs-path: ${AI_PUBLISHED_DOCS_PATH}
+    host-knowledge-path: ${AI_HOST_KNOWLEDGE_PATH}
+    host-published-docs-path: ${AI_HOST_PUBLISHED_DOCS_PATH}
+    copy-on-publish: ${AI_COPY_ON_PUBLISH:true}
 
 springdoc:
   api-docs:

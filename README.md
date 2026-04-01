@@ -104,11 +104,12 @@ All services should show `healthy` or `running` within 5 minutes.
 
 ## AI Assistant (Helix AI)
 
-The built-in AI Assistant runs fully on-premises via Ollama — no data leaves your infrastructure.
+The built-in AI Assistant runs fully on-premises via **Helix AI** (powered by Ollama) — no data leaves your infrastructure.
 
 - **Direct Assistance**: Available in **Author Draft** and **Author Edit** modes inside the document editor.
 - **Helix AI Integration**: Seamlessly synchronized with the **Helix AI** (AnythingLLM + LiteLLM) stack for advanced RAG and source attribution.
-- **Model**: Now uses the unified **`helix-ai`** model for consistency across all pharma-ai solutions.
+- **Model**: Now uses the unified **`helix-ai`** model for consistency across all solutions.
+- **Infrastructure Managed**: AI paths and models are managed via `docker-compose.yml` environment variables, ensuring a single source of truth.
 
 To update the AI model or system prompt, edit `infra/ollama/helix-ai` then recreate the model:
 ```bash
@@ -125,15 +126,15 @@ PharmaCX is now integrated with **Helix AI** for advanced pharmaceutical search 
 Any document that transitions to the **PUBLISHED** status in PharmaCX is automatically exported to a shared hot-folder. Helix AI monitors this folder and vectorizes the content in real-time.
 
 ### 🛠️ Configuration
-The integration is pre-configured in `infra/docker-compose.yml` via the shared volume mapping:
-- **Shared Path**: `/Users/venkateshwarlu/Documents/pharma-ai/published_docs`
-- **Container Path**: `/app/published_docs`
+The integration is pre-configured in `infra/docker-compose.yml` via shared volume mapping:
+- **System Grounding Path**: `/Users/venkateshwarlu/Documents/knowledge-base` (Container: `/app/knowledge-base`)
+- **System Export Path**: `/Users/venkateshwarlu/Documents/published-docs` (Container: `/app/published-docs`)
 
 ### 🚀 Starting the Grounding Heartbeat
 To enable real-time synchronization, you must start the heartbeat script in your Helix AI directory:
 ```bash
-cd /Users/venkateshwarlu/Documents/pharma-ai
-./scripts/helix_grounding_heartbeat.sh ./published_docs qa-confidential
+cd /Users/venkateshwarlu/Documents/helix-ai
+./scripts/helix_grounding_heartbeat.sh ./published-docs qa-confidential
 ```
 
 ---

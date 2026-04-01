@@ -83,8 +83,12 @@ public class AuthService {
     }
 
     public AppUser getUserById(String userId) {
-        return userRepo.findById(userId)
+        return findUserById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", userId));
+    }
+
+    public java.util.Optional<AppUser> findUserById(String userId) {
+        return userRepo.findById(userId);
     }
 
 }

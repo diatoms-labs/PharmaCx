@@ -5,10 +5,7 @@ import com.pharmaCx.dms.ai.repository.DocumentChunkRepository;
 import com.pharmaCx.dms.config.AiConfig;
 import com.pharmaCx.dms.domain.enums.DocumentStatus;
 import com.pharmaCx.dms.domain.model.ControlledDocument;
-import com.pharmaCx.dms.domain.model.SystemSetting;
 import com.pharmaCx.dms.domain.repository.ControlledDocumentRepository;
-import com.pharmaCx.dms.domain.repository.SystemSettingRepository;
-import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Async;
@@ -26,7 +23,8 @@ import java.util.stream.Stream;
 
 /**
  * Enterprise Background Knowledge Indexer & Virtualizer.
- * Scans external folders, registers files as VIRTUAL documents in the DMS,
+ * Scans external folders based on AiConfig (Docker env vars), 
+ * registers files as VIRTUAL documents in the DMS,
  * and indexes them for RAG and unified search.
  */
 @Service
@@ -36,62 +34,50 @@ public class BackgroundIndexService {
 
     private final DocumentChunkRepository chunkRepo;
     private final ControlledDocumentRepository documentRepo;
-    private final SystemSettingRepository settingRepo;
     private final OllamaClient ollamaClient;
     private final AiConfig aiConfig;
     private final DocumentTextExtractor textExtractor;
 
     public BackgroundIndexService(DocumentChunkRepository chunkRepo,
                                   ControlledDocumentRepository documentRepo,
-                                  SystemSettingRepository settingRepo,
                                   OllamaClient ollamaClient,
                                   AiConfig aiConfig,
                                   DocumentTextExtractor textExtractor) {
         this.chunkRepo = chunkRepo;
         this.documentRepo = documentRepo;
-        this.settingRepo = settingRepo;
         this.ollamaClient = ollamaClient;
         this.aiConfig = aiConfig;
         this.textExtractor = textExtractor;
     }
 
-    @PostConstruct
-    public void startBackgroundIndexing() {
-        indexBackgroundKnowledgeAsync();
-    }
-
     @Async("aiTaskExecutor")
     public void indexBackgroundKnowledgeAsync() {
-        String pathStr = settingRepo.findByScopeAndScopeIdIsNull("GLOBAL")
-                .map(SystemSetting::getSettings)
-                .map(SystemSetting.SettingValues::getExternalKnowledgePath)
-                .orElse(aiConfig.getBackgroundKnowledgePath());
+        String knowledgePath = aiConfig.getBackgroundKnowledgePath();
+        String publishedPath = aiConfig.getPublishedDocsPath();
 
-        if (pathStr == null || pathStr.isBlank()) {
-            log.info("[Background AI] No background knowledge path configured. Skipping.");
-            return;
-        }
+        log.info("[Background AI] Starting index scan (Source 1: {}, Source 2: {})", knowledgePath, publishedPath);
 
+        scanAndIndexFolder(knowledgePath, "KNOWLEDGE");
+        scanAndIndexFolder(publishedPath, "PUBLISHED_SYNC");
+
+        log.info("[Background AI] Unified index scan complete.");
+    }
+
+    private void scanAndIndexFolder(String pathStr, String originLabel) {
+        if (pathStr == null || pathStr.isBlank()) return;
         Path root = Paths.get(pathStr);
         if (!Files.exists(root) || !Files.isDirectory(root)) {
-            log.warn("[Background AI] Background knowledge path does not exist or is not a directory: {}", pathStr);
+            log.warn("[Background AI] Directory not found for {}: {}", originLabel, pathStr);
             return;
         }
-
-        log.info("[Background AI] Starting index scan of external folder: {}", pathStr);
-
-        // Delete previous external knowledge chunks (idempotent re-index)
-        chunkRepo.deleteBySource("EXTERNAL");
 
         try (Stream<Path> paths = Files.walk(root)) {
             paths.filter(Files::isRegularFile)
                  .filter(this::isSupportedFile)
-                 .forEach(filePath -> indexExternalFile(root, filePath));
+                 .forEach(filePath -> indexExternalFile(root, filePath, originLabel));
         } catch (IOException e) {
-            log.error("[Background AI] Failed to scan background knowledge folder: {}", e.getMessage());
+            log.error("[Background AI] Failed to scan {}: {}", originLabel, e.getMessage());
         }
-
-        log.info("[Background AI] Index scan complete for {}", pathStr);
     }
 
     private boolean isSupportedFile(Path path) {
@@ -99,33 +85,64 @@ public class BackgroundIndexService {
         return name.endsWith(".docx") || name.endsWith(".pdf") || name.endsWith(".txt") || name.endsWith(".md");
     }
 
-    private void indexExternalFile(Path root, Path filePath) {
+    private void indexExternalFile(Path root, Path filePath, String originLabel) {
         String fileName = filePath.getFileName().toString();
-        String relPath = root.relativize(filePath).toString();
-        log.info("[Background AI] Processing external file: {}", fileName);
+        String relPath = originLabel + "/" + root.relativize(filePath).toString();
+        
+        try {
+            long currentSize = Files.size(filePath);
+            long currentMod = Files.getLastModifiedTime(filePath).toMillis();
 
-        // 1. Virtualize document if not already registered
-        ControlledDocument doc = documentRepo.findByExternalPath(relPath)
-                .orElseGet(() -> {
-                    ControlledDocument d = new ControlledDocument();
-                    d.setTitle(fileName);
-                    d.setDocumentNumber("KB-" + fileName);
-                    d.setStatus(DocumentStatus.EXTERNAL_KNOWLEDGE);
-                    d.setExternalPath(relPath);
-                    d.setCreatedAt(Instant.now());
-                    d.setUpdatedAt(Instant.now());
-                    return documentRepo.save(d);
-                });
+            ControlledDocument doc = documentRepo.findByExternalPath(relPath).orElse(null);
+            
+            if (doc != null) {
+                boolean sizeChanged = doc.getExternalFileSize() == null || doc.getExternalFileSize() != currentSize;
+                boolean modChanged = doc.getExternalLastModified() == null || doc.getExternalLastModified() != currentMod;
+                boolean chunksMissing = chunkRepo.countByDocumentId(doc.getId()) == 0;
 
-        // 2. Extract and index chunks
+                if (!sizeChanged && !modChanged && !chunksMissing) {
+                    log.debug("[Background AI] Skipping {} (unchanged)", fileName);
+                    return;
+                }
+                
+                log.info("[Background AI] Re-indexing {} (changed or missing chunks)", fileName);
+                doc.setUpdatedAt(Instant.now());
+                doc.setExternalFileSize(currentSize);
+                doc.setExternalLastModified(currentMod);
+                documentRepo.save(doc);
+            } else {
+                log.info("[Background AI] New file detected: {}", fileName);
+                doc = new ControlledDocument();
+                doc.setTitle(fileName + " (" + originLabel + ")");
+                doc.setDocumentNumber("KB-" + originLabel + "-" + (int)(Math.random() * 9000 + 1000));
+                doc.setStatus(DocumentStatus.EXTERNAL_KNOWLEDGE);
+                doc.setExternalPath(relPath);
+                doc.setExternalFileSize(currentSize);
+                doc.setExternalLastModified(currentMod);
+                doc.setCreatedAt(Instant.now());
+                doc.setUpdatedAt(Instant.now());
+                doc = documentRepo.save(doc);
+            }
+
+            indexDocChunks(doc, filePath);
+
+        } catch (Exception e) {
+            log.error("[Background AI] Error processing {}: {}", filePath, e.getMessage());
+        }
+    }
+
+    private void indexDocChunks(ControlledDocument doc, Path filePath) {
         try {
             String fullText = textExtractor.extract(filePath);
             if (fullText == null || fullText.isBlank()) {
+                log.warn("[Background AI] No text in {}", doc.getTitle());
                 return;
             }
 
             List<String> chunks = chunkText(fullText, 
                     aiConfig.getIndexChunkWords(), aiConfig.getIndexChunkOverlap());
+
+            chunkRepo.deleteByDocumentId(doc.getId());
 
             List<DocumentChunk> newChunks = new ArrayList<>();
             for (int i = 0; i < chunks.size(); i++) {
@@ -145,11 +162,12 @@ public class BackgroundIndexService {
                 newChunks.add(chunk);
             }
 
-            chunkRepo.saveAll(newChunks);
-            log.debug("[Background AI] Indexed {} chunks for {}", newChunks.size(), fileName);
-
+            if (!newChunks.isEmpty()) {
+                chunkRepo.saveAll(newChunks);
+                log.info("[Background AI] Indexed {} chunks for {}", newChunks.size(), doc.getTitle());
+            }
         } catch (Exception e) {
-            log.error("[Background AI] Error indexing {}: {}", filePath, e.getMessage());
+            log.error("[Background AI] Chunking failed for {}: {}", doc.getTitle(), e.getMessage());
         }
     }
 

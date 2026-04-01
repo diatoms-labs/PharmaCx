@@ -102,5 +102,6 @@ public enum AuditAction {
     // AI (CFR 21 Part 11 — every AI interaction must be logged)
     AI_QUERY_EXECUTED,
     AI_CLOUD_OUTBOUND,
-    AI_LOCAL_EXECUTED
+    AI_LOCAL_EXECUTED,
+    REINDEX_TRIGGERED
 }

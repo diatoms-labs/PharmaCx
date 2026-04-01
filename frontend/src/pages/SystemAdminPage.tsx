@@ -34,7 +34,10 @@ interface SettingValues {
   cloudAiProvider: string;
   cloudAiApiKey: string;
   cloudAiModel: string;
-  externalKnowledgePath: string;
+  externalKnowledgePath?: string; // Stale, but for backward compatibility in types
+  backgroundKnowledgePath: string; // New infrastructure-managed
+  hostKnowledgePath?: string;
+  hostPublishedDocsPath?: string;
   publishedDocsPath: string;
   copyOnPublish: boolean;
 }
@@ -113,8 +116,8 @@ function SystemSettingsTab() {
     cloudAiProvider: 'GOOGLE',
     cloudAiApiKey: '',
     cloudAiModel: 'gemini-1.5-flash',
-    externalKnowledgePath: '/app/background-knowledge',
-    publishedDocsPath: '/app/published_docs',
+    backgroundKnowledgePath: '',
+    publishedDocsPath: '',
     copyOnPublish: true,
   });
   const [loading, setLoading] = useState(true);
@@ -216,26 +219,55 @@ function AIConfigurationTab() {
     localLightModel: 'phi3:mini',
     cloudAiProvider: 'GOOGLE',
     cloudAiApiKey: '',
-    publishedDocsPath: '/app/published_docs',
-    copyOnPublish: true,
     cloudAiModel: 'gemini-1.5-flash',
-    externalKnowledgePath: '/app/background-knowledge',
+    externalKnowledgePath: '',
+    backgroundKnowledgePath: '',
+    hostKnowledgePath: '',
+    hostPublishedDocsPath: '',
+    publishedDocsPath: '',
+    copyOnPublish: true,
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [indexing, setIndexing] = useState(false);
 
   useEffect(() => {
-    api.get<{ settings: SettingValues }>('/system-settings').then(res => {
-      if (res.data.settings) {
-        const s = res.data.settings;
-        // Migration: If it was HYBRID, treat as LOCAL for this UI simplified view
-        setValues({
-          ...s,
-          aiStrategy: (s.aiStrategy === 'HYBRID' as any) ? 'LOCAL' : s.aiStrategy
-        });
+    const fetchData = async () => {
+      try {
+        // 1. Fetch persistent system settings
+        const settingsRes = await api.get<{ settings: SettingValues }>('/system-settings');
+        if (settingsRes.data.settings) {
+          setValues((prev: SettingValues) => ({ ...prev, ...settingsRes.data.settings }));
+        }
+        
+        // 2. Fetch real-time AI configuration (infrastructure-managed)
+        const aiConfigRes = await api.get<any>('/ai/config');
+        const cfg = aiConfigRes.data;
+        if (cfg) {
+          setValues((prev: SettingValues) => ({
+            ...prev,
+            aiStrategy: cfg.strategy,
+            ollamaUrl: cfg.ollamaUrl,
+            localEmbedModel: cfg.embedModel,
+            localChatModel: cfg.chatModel,
+            localLightModel: cfg.lightChatModel,
+            cloudAiProvider: cfg.cloudProvider,
+            cloudAiApiKey: cfg.cloudApiKey || '',
+            cloudAiModel: cfg.cloudModel,
+            backgroundKnowledgePath: cfg.backgroundKnowledgePath,
+            hostKnowledgePath: cfg.hostKnowledgePath,
+            hostPublishedDocsPath: cfg.hostPublishedDocsPath,
+            publishedDocsPath: cfg.publishedDocsPath,
+            copyOnPublish: cfg.copyOnPublish
+          }));
+        }
+      } catch (err) {
+        showErrorToast(err, 'Failed to load configuration');
+      } finally {
+        setLoading(false);
       }
-    }).catch(() => showErrorToast(null, 'Failed to load AI settings'))
-      .finally(() => setLoading(false));
+    };
+    fetchData();
   }, []);
 
   const save = async () => {
@@ -251,8 +283,20 @@ function AIConfigurationTab() {
     }
   };
 
+  const triggerReindex = async () => {
+    setIndexing(true);
+    try {
+      await api.post('/ai/index/all');
+      toast.success('Full AI re-indexing triggered successfully');
+    } catch (err) {
+      showErrorToast(err, 'Failed to trigger re-indexing');
+    } finally {
+      setIndexing(false);
+    }
+  };
+
   const strategies = [
-    { id: 'LOCAL', name: 'Private Local AI', desc: 'Secure host-based AI (Ollama). No data leaves your network.', icon: <Shield size={18} className="text-green-500" /> },
+    { id: 'LOCAL', name: 'Private Local AI', desc: 'Secure host-based Helix AI engine. No data leaves your network.', icon: <Shield size={18} className="text-green-500" /> },
     { id: 'CLOUD', name: 'Elastic Cloud AI', desc: 'High performance processing via Google Gemini or Claude.', icon: <Globe size={18} className="text-blue-500" /> },
   ];
 
@@ -264,7 +308,7 @@ function AIConfigurationTab() {
         <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">AI Host Strategy</h3>
         <p className="text-xs text-gray-500 bg-amber-50 p-3 rounded-lg border border-amber-100 flex gap-2 items-center">
           <AlertCircle size={14} className="text-amber-600 shrink-0" />
-          PharmaCx prioritizes data sovereignty. Cloud processing is only recommended for public document indexing or sanitized drafting.
+          Helix AI prioritizes data sovereignty. Cloud processing is only recommended for public document indexing or sanitized drafting.
         </p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {strategies.map(s => (
@@ -294,12 +338,12 @@ function AIConfigurationTab() {
         <div className="bg-slate-50 rounded-2xl p-6 border border-slate-200 animate-in fade-in slide-in-from-top-2 duration-300">
           <h3 className="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2">
             <Cpu size={16} className="text-green-600" />
-            Host Ollama Configuration (Local)
+            Host Helix AI Configuration (Local)
           </h3>
           
           <div className="grid grid-cols-2 gap-4 mb-4">
             <div className="col-span-2">
-              <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-tighter">Ollama Endpoint</label>
+              <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-tighter">Helix AI Endpoint</label>
               <input 
                 type="text" 
                 className="input text-sm font-mono"
@@ -314,7 +358,7 @@ function AIConfigurationTab() {
               <input 
                 type="text" 
                 className="input text-sm font-mono placeholder-gray-300"
-                placeholder="pharma-ai"
+                placeholder="helix-ai"
                 value={values.localChatModel}
                 onChange={e => setValues(v => ({ ...v, localChatModel: e.target.value }))}
               />
@@ -380,55 +424,66 @@ function AIConfigurationTab() {
       )}
 
       <div className="bg-slate-50 rounded-2xl p-6 border border-slate-200">
-        <h3 className="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2">
-          <FolderOpen size={16} className="text-blue-600" />
-          RAG Local Knowledge Store
-        </h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+            <FolderOpen size={16} className="text-blue-600" />
+            Helix AI Grounding Store
+          </h3>
+          <button 
+            onClick={triggerReindex} 
+            disabled={indexing}
+            className="text-[11px] font-bold uppercase tracking-wider text-brand-600 hover:text-brand-700 disabled:text-gray-400 flex items-center gap-1.5"
+          >
+            {indexing ? <Loader2 size={12} className="animate-spin" /> : <div className="w-2 h-2 rounded-full bg-brand-500 animate-pulse" />}
+            Trigger Full AI Re-index
+          </button>
+        </div>
+        
         <div className="space-y-4">
-          <div>
-            <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-tighter">Knowledge Root Path (Internal RAG)</label>
-            <input 
-              type="text" 
-              className="input text-sm font-mono"
-              placeholder="/app/background-knowledge"
-              value={values.externalKnowledgePath}
-              onChange={e => setValues(v => ({ ...v, externalKnowledgePath: e.target.value }))}
-            />
+          <div className="p-4 bg-white rounded-xl border border-slate-100">
+            <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase tracking-wider">System Grounding Path (Knowledge-Base)</label>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-mono text-blue-600 font-bold">{values.hostKnowledgePath || 'Not Configured'}</span>
+              <span className="px-2 py-0.5 rounded text-[9px] font-bold bg-blue-50 text-blue-500 border border-blue-100 uppercase">System Physical Path</span>
+            </div>
+            
+            <div className="pt-2 border-t border-slate-50 flex items-center justify-between">
+              <span className="text-[10px] font-mono text-slate-400 italic">Container Internal: {values.backgroundKnowledgePath || 'N/A'}</span>
+              <span className="text-[9px] font-bold text-slate-300 uppercase">Docker Virtual Mono</span>
+            </div>
+            
+            <p className="text-[10px] text-slate-400 mt-3 italic flex gap-1.5 items-center">
+              <AlertCircle size={10} />
+              Managed via AI_HOST_KNOWLEDGE_PATH infrastructure setting.
+            </p>
           </div>
 
           <div className="pt-4 border-t border-slate-200">
-             <div className="flex items-center justify-between mb-4">
+             <div className="flex items-center justify-between mb-3">
                 <div>
                   <p className="text-sm font-bold text-slate-800">Helix AI Hot-Folder Sync</p>
-                  <p className="text-xs text-slate-500">Auto-copy published docs to a shared folder for Helix AI grounding.</p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">SOPs are automatically synced to Helix AI upon publication.</p>
                 </div>
-                <button onClick={() => setValues(v => ({ ...v, copyOnPublish: !v.copyOnPublish }))}>
-                  {values.copyOnPublish ? <ToggleRight size={28} className="text-brand-600" /> : <ToggleLeft size={28} className="text-slate-300" />}
-                </button>
+                <div className="px-2 py-1 bg-green-50 text-green-600 text-[10px] font-extrabold rounded border border-green-100 uppercase">Always Active</div>
              </div>
              
-             {values.copyOnPublish && (
-                <div className="animate-in fade-in slide-in-from-top-1 duration-200">
-                  <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-tighter">Published Hot-Folder Path</label>
-                  <input 
-                    type="text" 
-                    className="input text-sm font-mono"
-                    placeholder="/app/published_docs"
-                    value={values.publishedDocsPath}
-                    onChange={e => setValues(v => ({ ...v, publishedDocsPath: e.target.value }))}
-                  />
-                  <p className="text-[10px] text-slate-500 mt-1.5 leading-relaxed italic">
-                    Mapped to <strong>./storage/published_docs</strong> on your host machine.
-                  </p>
+             <div className="p-3 bg-white rounded-xl border border-slate-100">
+                <label className="block text-[10px] font-bold text-slate-400 mb-1 px-1 uppercase tracking-wider">System Export Location (Published-Docs)</label>
+                <div className="flex items-center justify-between mb-1">
+                   <code className="text-sm text-emerald-600 font-bold block px-1 truncate">{values.hostPublishedDocsPath || 'Not Configured'}</code>
+                   <span className="px-2 py-0.5 rounded text-[9px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-100 uppercase whitespace-nowrap">Physical Sync</span>
                 </div>
-             )}
+                <div className="px-1 text-[9px] text-slate-400 font-mono">Container Mapping: {values.publishedDocsPath || 'N/A'}</div>
+             </div>
           </div>
         </div>
       </div>
 
-      <button onClick={save} disabled={saving} className="btn-primary text-sm px-8 py-3 shadow-xl shadow-brand-500/20">
-        {saving ? <><Loader2 size={16} className="animate-spin" /> Saving Configuration...</> : <><Check size={16} /> Update AI Engine</>}
-      </button>
+      <div className="flex items-center gap-4">
+        <button onClick={save} disabled={saving} className="btn-primary text-sm px-8 py-3 shadow-xl shadow-brand-500/20">
+          {saving ? <><Loader2 size={16} className="animate-spin" /> Saving Configuration...</> : <><Check size={16} /> Update AI Engine</>}
+        </button>
+      </div>
     </div>
   );
 }

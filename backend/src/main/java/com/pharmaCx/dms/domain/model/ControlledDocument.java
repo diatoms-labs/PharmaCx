@@ -52,6 +52,8 @@ public class ControlledDocument {
 
     private String parentDocumentId;
     private String externalPath; 
+    private Long externalFileSize;
+    private Long externalLastModified;
 
     public ControlledDocument() {}
 
@@ -145,6 +147,12 @@ public class ControlledDocument {
 
     public String getExternalPath() { return externalPath; }
     public void setExternalPath(String externalPath) { this.externalPath = externalPath; }
+
+    public Long getExternalFileSize() { return externalFileSize; }
+    public void setExternalFileSize(Long externalFileSize) { this.externalFileSize = externalFileSize; }
+
+    public Long getExternalLastModified() { return externalLastModified; }
+    public void setExternalLastModified(Long externalLastModified) { this.externalLastModified = externalLastModified; }
 
     @Override
     public boolean equals(Object o) {

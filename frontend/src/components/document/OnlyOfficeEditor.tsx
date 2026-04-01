@@ -89,7 +89,7 @@ export default function OnlyOfficeEditor({ id, doc, onInit, editorMountKey }: On
   }, [destroyEditor, onInit]);
 
   useEffect(() => {
-    if (!doc.documentFileId) return;
+    if (!doc.documentFileId && !doc.externalPath) return;
 
     // Use a composite key to detect changes requiring a full reload (status, version, mount key)
     const currentConfigKey = `${doc.documentFileId}_${doc.status}_${doc.version}_${editorMountKey}`;
@@ -141,14 +141,14 @@ export default function OnlyOfficeEditor({ id, doc, onInit, editorMountKey }: On
     loadConfigAndInit();
 
     return () => { isCancelled = true; };
-  }, [id, doc.id, doc.documentFileId, doc.status, doc.version, editorMountKey, initEditor, destroyEditor]);
+  }, [id, doc.id, doc.documentFileId, doc.externalPath, doc.status, doc.version, editorMountKey, initEditor, destroyEditor]);
 
   // Mandatory clean-up on component destruction
   useEffect(() => {
     return () => destroyEditor();
   }, [destroyEditor]);
 
-  if (!doc.documentFileId) {
+  if (!doc.documentFileId && !doc.externalPath) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center bg-gray-50 text-center p-12">
         <FileText size={56} className="text-gray-300 mb-6 drop-shadow-sm" />

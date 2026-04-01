@@ -46,7 +46,7 @@ export default function AISearchPage() {
                   <Bot size={20} />
                 </div>
                 <div>
-                  <h1 className="text-[16px] font-extrabold text-gray-900 tracking-tight leading-none">AI Insight Search</h1>
+                  <h1 className="text-[16px] font-extrabold text-gray-900 tracking-tight leading-none">Helix AI Insight Search</h1>
                   <p className="text-[11px] text-gray-500 font-medium">Semantic Knowledge Discovery</p>
                 </div>
               </div>

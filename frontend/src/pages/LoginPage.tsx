@@ -67,7 +67,7 @@ export default function LoginPage() {
             <div className="w-5 h-5 rounded-full bg-pharma-accent/20 flex items-center justify-center text-pharma-accent">
                <Cpu size={12} strokeWidth={3} />
             </div>
-            <span>Local Secure AI (Pharma-AI)</span>
+            <span>Local Secure AI (Helix AI)</span>
           </div>
           <div className="flex items-center gap-2 text-pharma-tint">
             <div className="w-5 h-5 rounded-full bg-pharma-accent/20 flex items-center justify-center text-pharma-accent">

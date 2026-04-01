@@ -180,12 +180,18 @@ public class DocumentWorkflowService {
         qaStep.setStatus(StepStatus.COMPLETED);
         qaStep.setCompletedAt(Instant.now());
 
+        // Next Step: Author Draft
         doc.setCurrentStepIndex(2);
         doc.setStatus(DocumentStatus.AUTHOR_DRAFT);
         WorkflowStep authorStep = doc.getWorkflowSteps().get(2);
         authorStep.setAssignedToUserId(doc.getAuthorId());
-        AppUser author = authService.getUserById(doc.getAuthorId());
-        authorStep.setAssignedToUsername(author.getFullName());
+        
+        // Use userRepo directly to handle cases where author might be missing (e.g. data mismatch or deleted user)
+        String authorName = userRepo.findById(doc.getAuthorId())
+                .map(AppUser::getFullName)
+                .orElse("Original Author (" + doc.getAuthorId() + ")");
+                
+        authorStep.setAssignedToUsername(authorName);
         authorStep.setAssignedByUserId(userId);
         authorStep.setStatus(StepStatus.IN_PROGRESS);
         authorStep.setStartedAt(Instant.now());
@@ -530,7 +536,10 @@ public class DocumentWorkflowService {
         WorkflowStep step = doc.getWorkflowSteps().get(stepIndex);
 
         if (stepIndex == 1) {
-            AppUser actor = authService.getUserById(userId);
+            AppUser actor = userRepo.findById(userId).orElse(null);
+            if (actor == null) {
+                throw new AccessDeniedException("Assigned user record not found. Please log in again.");
+            }
             String qaUnitId = resolveQaUnitId();
             if (qaUnitId == null || !qaUnitId.equals(actor.getUnitId())) {
                 throw new AccessDeniedException("Only QA department users can perform Request Selection");
@@ -561,7 +570,10 @@ public class DocumentWorkflowService {
         for (WorkflowStep ws : doc.getWorkflowSteps()) {
             if (userId.equals(ws.getAssignedToUserId())) return true;
         }
-        AppUser viewer = authService.getUserById(userId);
+        
+        AppUser viewer = userRepo.findById(userId).orElse(null);
+        if (viewer == null) return false;
+        
         String qaUnitId = resolveQaUnitId();
         if (qaUnitId != null && qaUnitId.equals(viewer.getUnitId())) return true;
         if (viewer.getRole() == UserRole.HEAD_OF_DEPARTMENT

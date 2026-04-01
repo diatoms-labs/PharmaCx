@@ -105,7 +105,7 @@ export default function ProductPresentationPage() {
                      />
                      <div className="absolute inset-0 bg-gradient-to-t from-pharma-navy/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-8">
                         <div className="text-white">
-                           <div className="font-black text-lg mb-1 italic tracking-widest uppercase">Pharma-AI Interface</div>
+                           <div className="font-black text-lg mb-1 italic tracking-widest uppercase">Helix AI Interface</div>
                            <div className="text-xs font-bold text-pharma-tint/80">Validated locally hosted generative intelligence</div>
                         </div>
                      </div>
@@ -181,7 +181,7 @@ export default function ProductPresentationPage() {
                      <div className="w-16 h-16 bg-brand-500/10 rounded-2xl flex items-center justify-center text-brand-600 mb-8 group-hover:rotate-6 transition-transform">
                         <Bot size={32} />
                      </div>
-                     <h3 className="text-2xl font-black text-pharma-navy mb-4 italic tracking-tight">Pharma-AI</h3>
+                     <h3 className="text-2xl font-black text-pharma-navy mb-4 italic tracking-tight">Helix AI</h3>
                      <p className="text-slate-500 mb-8 font-medium leading-relaxed">
                         Secure, local enterprise search. Query your proprietary compliance data using natural language without data leaving your premise.
                      </p>
@@ -281,7 +281,7 @@ export default function ProductPresentationPage() {
                            <div className="w-12 h-12 rounded-xl bg-pharma-navy flex items-center justify-center text-white"><Server size={22} /></div>
                            <h4 className="text-xl font-black text-pharma-navy italic tracking-tight">On-Premise Inference</h4>
                         </div>
-                        <p className="text-sm text-slate-500 font-medium leading-relaxed">We don't call external APIs. Your private Pharma-AI model runs on your servers, inside your firewall. No data leakage, ever.</p>
+                        <p className="text-sm text-slate-500 font-medium leading-relaxed">We don't call external APIs. Your private Helix AI model runs on your servers, inside your firewall. No data leakage, ever.</p>
                      </div>
                      <div className="p-8 rounded-3xl bg-slate-50 border border-slate-100 hover:-translate-y-1 transition-transform group">
                         <div className="flex items-center gap-4 mb-4">
@@ -304,7 +304,7 @@ export default function ProductPresentationPage() {
                                     <Bot size={48} />
                                  </div>
                               </div>
-                              <h3 className="text-3xl font-black text-white italic tracking-tighter mb-4">PHARMA-AI CORE</h3>
+                              <h3 className="text-3xl font-black text-white italic tracking-tighter mb-4">HELIX AI CORE</h3>
                               <div className="px-5 py-1.5 rounded-full bg-pharma-primary text-[10px] font-black uppercase tracking-widest text-white mb-10">Active Security Shield Engaged</div>
 
                               <div className="grid grid-cols-3 gap-8 w-full max-w-md mx-auto relative">
@@ -413,7 +413,7 @@ export default function ProductPresentationPage() {
                   <ul className="space-y-4 text-sm font-bold text-slate-400">
                      <li><a href="#" className="hover:text-white transition-colors italic">Smart DMS</a></li>
                      <li><a href="#" className="hover:text-white transition-colors italic">Precision TMS</a></li>
-                     <li><a href="#" className="hover:text-white transition-colors italic">Pharma-AI Search</a></li>
+                     <li><a href="#" className="hover:text-white transition-colors italic">Helix AI Search</a></li>
                      <li><a href="#" className="hover:text-white transition-colors italic">Validated Workflows</a></li>
                   </ul>
                </div>

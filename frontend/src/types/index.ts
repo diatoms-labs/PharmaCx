@@ -8,6 +8,7 @@ export type DocumentStatus =
   | 'QA_REVIEW'
   | 'APPROVAL'
   | 'PUBLISHED'
+  | 'EXTERNAL_KNOWLEDGE'
   | 'RETIRED';
 
 export type StepStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'REJECTED' | 'SKIPPED';
@@ -103,6 +104,9 @@ export interface ControlledDocument {
   nextReviewDate: string | null;
   createdAt: string;
   updatedAt: string;
+  externalPath: string | null;
+  externalFileSize: number | null;
+  externalLastModified: number | null;
 }
 
 export interface QuizAnswer {

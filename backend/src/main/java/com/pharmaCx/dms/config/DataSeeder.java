@@ -215,11 +215,6 @@ public class DataSeeder implements CommandLineRunner {
         global.setUpdatedAt(Instant.now());
         global.setUpdatedBy("SYSTEM");
         
-        SystemSetting.SettingValues v = global.getSettings();
-        v.setAiStrategy("LOCAL");
-        v.setCloudAiProvider("GOOGLE");
-        v.setCloudAiModel("gemini-1.5-flash");
-        
         settingsRepo.save(global);
         log.info("Seeded global system settings");
     }

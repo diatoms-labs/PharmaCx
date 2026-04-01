@@ -1,5 +1,6 @@
 package com.pharmaCx.dms.api.controller;
 
+import com.pharmaCx.dms.config.AiConfig;
 import com.pharmaCx.dms.config.OnlyOfficeConfig;
 import com.pharmaCx.dms.domain.model.SystemSetting;
 import com.pharmaCx.dms.domain.repository.SystemSettingRepository;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.io.InputStream;
 import java.net.URL;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Map;
@@ -27,6 +29,7 @@ public class FileController {
     private final FileStorageService fileStorageService;
     private final OnlyOfficeConfig onlyOfficeConfig;
     private final SystemSettingRepository settingRepo;
+    private final AiConfig aiConfig;
 
     /**
      * Tracks when each fileId was last saved via the OnlyOffice callback.
@@ -36,10 +39,12 @@ public class FileController {
 
     public FileController(FileStorageService fileStorageService, 
                           OnlyOfficeConfig onlyOfficeConfig,
-                          SystemSettingRepository settingRepo) {
+                          SystemSettingRepository settingRepo,
+                          AiConfig aiConfig) {
         this.fileStorageService = fileStorageService;
         this.onlyOfficeConfig = onlyOfficeConfig;
         this.settingRepo = settingRepo;
+        this.aiConfig = aiConfig;
     }
 
     /**
@@ -74,22 +79,54 @@ public class FileController {
      */
     @GetMapping("/external")
     public ResponseEntity<Resource> serveExternalFile(@RequestParam String relativePath) {
-        String rootStr = settingRepo.findByScopeAndScopeIdIsNull("GLOBAL")
-                .map(SystemSetting::getSettings)
-                .map(SystemSetting.SettingValues::getExternalKnowledgePath)
-                .orElse("/app/background-knowledge");
+        String knowledgeRoot = aiConfig.getBackgroundKnowledgePath();
+        String publishedRoot = aiConfig.getPublishedDocsPath();
+        
+        log.info("Request to serve external file: relativePath={}, knowledgeRoot={}, publishedRoot={}", 
+                relativePath, knowledgeRoot, publishedRoot);
 
-        Path fullPath = Paths.get(rootStr).resolve(relativePath).normalize();
-        if (!fullPath.startsWith(Paths.get(rootStr))) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        // 1. Try Knowledge Root
+        if (knowledgeRoot != null) {
+            Path path = Paths.get(knowledgeRoot).resolve(relativePath).normalize();
+            if (isValidExternalPath(path, knowledgeRoot)) return serveFileResource(path);
+            
+            // Try stripping prefix if it exists
+            if (relativePath.contains("/")) {
+                String filename = relativePath.substring(relativePath.lastIndexOf("/") + 1);
+                Path altPath = Paths.get(knowledgeRoot).resolve(filename).normalize();
+                if (isValidExternalPath(altPath, knowledgeRoot)) return serveFileResource(altPath);
+            }
         }
 
-        Resource resource = new FileSystemResource(fullPath);
-        if (!resource.exists()) {
-            return ResponseEntity.notFound().build();
+        // 2. Try Published Root
+        if (publishedRoot != null) {
+            Path path = Paths.get(publishedRoot).resolve(relativePath).normalize();
+            if (isValidExternalPath(path, publishedRoot)) return serveFileResource(path);
+
+            if (relativePath.contains("/")) {
+                String filename = relativePath.substring(relativePath.lastIndexOf("/") + 1);
+                Path altPath = Paths.get(publishedRoot).resolve(filename).normalize();
+                if (isValidExternalPath(altPath, publishedRoot)) return serveFileResource(altPath);
+            }
         }
 
-        String fileName = fullPath.getFileName().toString();
+        log.warn("External file not consumed: {}", relativePath);
+        return ResponseEntity.notFound().build();
+    }
+
+    private boolean isValidExternalPath(Path path, String root) {
+        try {
+            Path rootPath = Paths.get(root).toAbsolutePath().normalize();
+            Path absPath = path.toAbsolutePath().normalize();
+            return absPath.startsWith(rootPath) && Files.exists(absPath) && !Files.isDirectory(absPath);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private ResponseEntity<Resource> serveFileResource(Path path) {
+        Resource resource = new FileSystemResource(path);
+        String fileName = path.getFileName().toString();
         String contentType = fileName.toLowerCase().endsWith(".pdf") ? "application/pdf" : "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
         return ResponseEntity.ok()

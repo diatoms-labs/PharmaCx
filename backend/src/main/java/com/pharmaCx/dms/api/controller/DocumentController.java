@@ -80,9 +80,12 @@ public class DocumentController {
         EditorConfigResponse editorConfig = null;
         Map<String, Boolean> features = null;
 
-        if (doc.getDocumentFileId() != null) {
+        if (doc.getDocumentFileId() != null || doc.getExternalPath() != null) {
             String userId = currentUserService.getCurrentUserId();
-            AppUser user = authService.getUserById(userId);
+            AppUser user = authService.findUserById(userId).orElse(null);
+            if (user == null) {
+                throw new com.pharmaCx.dms.exception.AccessDeniedException("Valid user record not found. Please log in again.");
+            }
             boolean canEdit = isUserAssignedToCurrentStep(doc, userId);
             boolean isRevision = OnlyOfficeService.isRevisionDraft(doc);
 

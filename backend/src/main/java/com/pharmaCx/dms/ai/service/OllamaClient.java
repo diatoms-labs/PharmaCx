@@ -1,7 +1,6 @@
 package com.pharmaCx.dms.ai.service;
 
-import com.pharmaCx.dms.domain.model.SystemSetting;
-import com.pharmaCx.dms.domain.repository.SystemSettingRepository;
+import com.pharmaCx.dms.config.AiConfig;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -22,39 +21,31 @@ import java.util.*;
 import java.util.function.Consumer;
 
 /**
- * Thin HTTP client for the local Ollama REST API.
- *
- * Two operations:
- *   - embedText()    → POST /api/embeddings  (nomic-embed-text)
- *   - generateChat() → POST /api/generate    (pharma-ai, non-streaming)
- *
- * All document text stays local — nothing is sent to external services.
+ * Enterprise HTTP client for the local Ollama REST API.
+ * 
+ * Logic is driven entirely by AiConfig (Docker environment variables).
  */
 @Service
 public class OllamaClient implements AiClient {
 
     private static final Logger log = LoggerFactory.getLogger(OllamaClient.class);
 
-    private final SystemSettingRepository settingsRepo;
+    private final AiConfig aiConfig;
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
 
-    public OllamaClient(SystemSettingRepository settingsRepo, 
-                        RestTemplate restTemplate, ObjectMapper objectMapper) {
-        this.settingsRepo = settingsRepo;
+    public OllamaClient(AiConfig aiConfig, 
+                        RestTemplate restTemplate, 
+                        ObjectMapper objectMapper) {
+        this.aiConfig = aiConfig;
         this.restTemplate = restTemplate;
         this.objectMapper = objectMapper;
     }
 
-    /**
-     * Embed a text string using nomic-embed-text.
-     * Returns a 768-dimension vector, or empty list on failure.
-     */
     public List<Double> embedText(String text) {
         try {
             ObjectNode body = objectMapper.createObjectNode();
-            body.put("model", getEmbedModel());
-
+            body.put("model", aiConfig.getEmbedModel());
             body.put("prompt", text);
 
             HttpHeaders headers = new HttpHeaders();
@@ -62,8 +53,7 @@ public class OllamaClient implements AiClient {
             HttpEntity<String> request = new HttpEntity<>(objectMapper.writeValueAsString(body), headers);
 
             ResponseEntity<String> response = restTemplate.postForEntity(
-                    getOllamaUrl() + "/api/embeddings", request, String.class);
-
+                    aiConfig.getOllamaUrl() + "/api/embeddings", request, String.class);
 
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
                 JsonNode root = objectMapper.readTree(response.getBody());
@@ -75,38 +65,25 @@ public class OllamaClient implements AiClient {
                 }
             }
         } catch (Exception e) {
-            log.warn("Embedding failed for text (len={}): {}", text.length(), e.getMessage());
+            log.warn("[AI Embed] Failed for model {}: {}", aiConfig.getEmbedModel(), e.getMessage());
         }
         return Collections.emptyList();
     }
 
-    /**
-     * Generate a chat response from pharma-ai with full RAG context injected.
-     *
-     * @param workflowStage  e.g. "AUTHOR_DRAFT", "PEER_REVIEW", "PUBLISHED" — used for stage tag
-     * @param contextChunks  retrieved document chunks to inject between <context> tags
-     * @param userMessage    the user's question or request
-     * @return the model's response text, or an error message on failure
-     */
     @Override
     public String generate(String prompt, String context) {
         return generateChat(null, context != null ? List.of(context) : Collections.emptyList(), prompt, false);
-    }
-
-    public String generateChat(String workflowStage, List<String> contextChunks, String userMessage) {
-        return generateChat(workflowStage, contextChunks, userMessage, false);
     }
 
     public String generateChat(String workflowStage, List<String> contextChunks, String userMessage, boolean isLight) {
         try {
             String stageTag = resolveStageTag(workflowStage);
             String contextBlock = buildContextBlock(contextChunks);
-            String instruction = "IMPORTANT: Use natural language with proper spaces, punctuation, AND clear paragraph breaks. NEVER merge words together.";
+            String instruction = "IMPORTANT: Use natural language with proper spaces, punctuation, AND clear paragraph breaks.";
             String fullPrompt = stageTag + "\n" + instruction + "\n\n" + contextBlock + "\n\nUser: " + userMessage;
 
             ObjectNode body = objectMapper.createObjectNode();
-            body.put("model", isLight ? getLightChatModel() : getChatModel());
-
+            body.put("model", isLight ? aiConfig.getLightChatModel() : aiConfig.getChatModel());
             body.put("prompt", fullPrompt);
             body.put("stream", false);
 
@@ -120,8 +97,7 @@ public class OllamaClient implements AiClient {
             HttpEntity<String> request = new HttpEntity<>(objectMapper.writeValueAsString(body), headers);
 
             ResponseEntity<String> response = restTemplate.postForEntity(
-                    getOllamaUrl() + "/api/generate", request, String.class);
-
+                    aiConfig.getOllamaUrl() + "/api/generate", request, String.class);
 
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
                 JsonNode root = objectMapper.readTree(response.getBody());
@@ -130,30 +106,25 @@ public class OllamaClient implements AiClient {
                     return responseNode.asText();
                 }
             }
-            return "AI service returned an unexpected response (" + response.getStatusCode() + ").";
+            return "AI service returned an unexpected response.";
         } catch (Exception e) {
-            log.error("[AI Chat] Generation failed for model {}: {}", isLight ? getLightChatModel() : getChatModel(), e.getMessage());
-
-            return "AI service is currently unavailable. Error: " + e.getMessage();
+            log.error("[AI Chat] Generation failed for model {}: {}", 
+                    isLight ? aiConfig.getLightChatModel() : aiConfig.getChatModel(), e.getMessage());
+            return "AI service is currently unavailable.";
         }
     }
 
-    /**
-     * Streaming variant of generateChat — calls Ollama with stream=true and
-     * invokes onToken for each response token. Calls onComplete when finished.
-     */
     @Override
     public void generateChatStream(String workflowStage, List<String> contextChunks,
                                    String userMessage, boolean isLight, Consumer<String> onToken, Runnable onComplete) {
         try {
             String stageTag = resolveStageTag(workflowStage);
             String contextBlock = buildContextBlock(contextChunks);
-            String instruction = "IMPORTANT: Use natural language with proper spaces, punctuation, AND clear paragraph breaks. NEVER merge words together.";
+            String instruction = "IMPORTANT: Use natural language with proper spaces and clear paragraph breaks.";
             String fullPrompt = stageTag + "\n" + instruction + "\n\n" + contextBlock + "\n\nUser: " + userMessage;
 
             ObjectNode body = objectMapper.createObjectNode();
-            body.put("model", isLight ? getLightChatModel() : getChatModel());
-
+            body.put("model", isLight ? aiConfig.getLightChatModel() : aiConfig.getChatModel());
             body.put("prompt", fullPrompt);
             body.put("stream", true);
 
@@ -163,7 +134,7 @@ public class OllamaClient implements AiClient {
             body.set("options", options);
 
             byte[] requestBytes = objectMapper.writeValueAsBytes(body);
-            URL url = URI.create(getOllamaUrl() + "/api/generate").toURL();
+            URL url = URI.create(aiConfig.getOllamaUrl() + "/api/generate").toURL();
 
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("POST");
@@ -182,7 +153,6 @@ public class OllamaClient implements AiClient {
                     JsonNode node = objectMapper.readTree(line);
                     String token = node.path("response").asText("");
                     if (!token.isEmpty()) {
-                        log.info("[Ollama] Token: '{}'", token);
                         onToken.accept(token);
                     }
                     if (node.path("done").asBoolean(false)) break;
@@ -191,54 +161,22 @@ public class OllamaClient implements AiClient {
                 conn.disconnect();
             }
         } catch (Exception e) {
-            log.error("Streaming chat generation failed: {}", e.getMessage());
-            onToken.accept("AI service is currently unavailable. Please check that Ollama is running.");
+            log.error("[AI Stream] Generation failed: {}", e.getMessage());
+            onToken.accept("AI service is currently unavailable.");
         } finally {
             onComplete.run();
         }
     }
 
-    /**
-     * Ping Ollama to check connectivity.
-     */
     public boolean isAvailable() {
         try {
-            // Check specific endpoint for tags
             ResponseEntity<String> response = restTemplate.getForEntity(
-                    getOllamaUrl() + "/api/tags", String.class);
-            boolean available = response.getStatusCode().is2xxSuccessful();
-            if (!available) {
-                log.warn("[AI Connectivity] Ollama returned status {} for /api/tags", response.getStatusCode());
-            }
-            return available;
+                    aiConfig.getOllamaUrl() + "/api/tags", String.class);
+            return response.getStatusCode().is2xxSuccessful();
         } catch (Exception e) {
-            log.error("[AI Connectivity] Failed to reach Ollama at {}: {}", getOllamaUrl(), e.getMessage());
+            log.error("[AI Connectivity] Failed to reach Ollama at {}: {}", aiConfig.getOllamaUrl(), e.getMessage());
             return false;
         }
-    }
-
-    // ── Private helpers ────────────────────────────────────────────────────────
-
-    private String getOllamaUrl() {
-        return getSettings().getOllamaUrl();
-    }
-
-    private String getEmbedModel() {
-        return getSettings().getLocalEmbedModel();
-    }
-
-    private String getChatModel() {
-        return getSettings().getLocalChatModel();
-    }
-
-    private String getLightChatModel() {
-        return getSettings().getLocalLightModel();
-    }
-
-    private SystemSetting.SettingValues getSettings() {
-        return settingsRepo.findByScopeAndScopeIdIsNull("GLOBAL")
-                .map(it -> it.getSettings())
-                .orElse(new SystemSetting.SettingValues());
     }
 
     private String resolveStageTag(String workflowStage) {

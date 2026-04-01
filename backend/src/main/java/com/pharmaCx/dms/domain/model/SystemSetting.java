@@ -48,23 +48,6 @@ public class SystemSetting {
         // Top header background (hex). Null = white/default.
         private String headerColor;
 
-        // AI Configuration
-        // LOCAL | HYBRID | CLOUD
-        private String aiStrategy = "LOCAL";
-        
-        // Local (Ollama) Config
-        private String ollamaUrl = "http://host.docker.internal:11434";
-        private String localEmbedModel = "nomic-embed-text";
-        private String localChatModel = "pharma-ai";
-        private String localLightModel = "phi3:mini";
-
-        // Cloud Config
-        private String cloudAiProvider = "GOOGLE";
-        private String cloudAiApiKey;
-        private String cloudAiModel = "gemini-1.5-flash";
-        
-        private String externalKnowledgePath = "/app/background-knowledge";
-
         // ── Getters & Setters ────────────────────────────────────────────────────
         public boolean isDownloadEnabled() {
             return downloadEnabled;
@@ -160,78 +143,6 @@ public class SystemSetting {
 
         public void setHeaderColor(String headerColor) {
             this.headerColor = headerColor;
-        }
-
-        public String getAiStrategy() {
-            return aiStrategy;
-        }
-
-        public void setAiStrategy(String aiStrategy) {
-            this.aiStrategy = aiStrategy;
-        }
-
-        public String getCloudAiProvider() {
-            return cloudAiProvider;
-        }
-
-        public void setCloudAiProvider(String cloudAiProvider) {
-            this.cloudAiProvider = cloudAiProvider;
-        }
-
-        public String getCloudAiApiKey() {
-            return cloudAiApiKey;
-        }
-
-        public void setCloudAiApiKey(String cloudAiApiKey) {
-            this.cloudAiApiKey = cloudAiApiKey;
-        }
-
-        public String getCloudAiModel() {
-            return cloudAiModel;
-        }
-
-        public void setCloudAiModel(String cloudAiModel) {
-            this.cloudAiModel = cloudAiModel;
-        }
-
-        public String getExternalKnowledgePath() {
-            return externalKnowledgePath;
-        }
-
-        public void setExternalKnowledgePath(String externalKnowledgePath) {
-            this.externalKnowledgePath = externalKnowledgePath;
-        }
-
-        public String getOllamaUrl() {
-            return ollamaUrl;
-        }
-
-        public void setOllamaUrl(String ollamaUrl) {
-            this.ollamaUrl = ollamaUrl;
-        }
-
-        public String getLocalEmbedModel() {
-            return localEmbedModel;
-        }
-
-        public void setLocalEmbedModel(String localEmbedModel) {
-            this.localEmbedModel = localEmbedModel;
-        }
-
-        public String getLocalChatModel() {
-            return localChatModel;
-        }
-
-        public void setLocalChatModel(String localChatModel) {
-            this.localChatModel = localChatModel;
-        }
-
-        public String getLocalLightModel() {
-            return localLightModel;
-        }
-
-        public void setLocalLightModel(String localLightModel) {
-            this.localLightModel = localLightModel;
         }
     }
 
