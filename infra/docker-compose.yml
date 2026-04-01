@@ -62,8 +62,8 @@ services:
     container_name: backend
     volumes:
       - document_storage:/app/document-storage
-      - ../Documents:/app/background-knowledge:ro
-      - /Users/venkateshwarlu/Documents/published_docs:/app/published_docs
+      - /Users/venkateshwarlu/Documents/knowledge-base:/app/knowledge-base:ro
+      - /Users/venkateshwarlu/Documents/published-docs:/app/published-docs
     environment:
       SPRING_DATA_MONGODB_URI: mongodb://mongodb:27017/pharma-cx-db
       AUTH_JWT_SECRET: pharma-cx-256bit-secret-key-for-dev-only!!
@@ -73,7 +73,10 @@ services:
       ONLYOFFICE_JWT_SECRET: pharma-cx-onlyoffice-jwt-secret-key-2026
       BACKEND_URL: http://backend:8080
       AI_OLLAMA_URL: http://host.docker.internal:11434
-      AI_PUBLISHED_DOCS_PATH: /app/published_docs
+      AI_BACKGROUND_KNOWLEDGE_PATH: /app/knowledge-base
+      AI_PUBLISHED_DOCS_PATH: /app/published-docs
+      AI_HOST_KNOWLEDGE_PATH: /Users/venkateshwarlu/Documents/knowledge-base
+      AI_HOST_PUBLISHED_DOCS_PATH: /Users/venkateshwarlu/Documents/published-docs
       AI_COPY_ON_PUBLISH: ${AI_COPY_ON_PUBLISH:-true}
       CLOUD_AI_PROVIDER: ${CLOUD_AI_PROVIDER:-GOOGLE}
       CLOUD_AI_API_KEY: ${CLOUD_AI_API_KEY:-}
